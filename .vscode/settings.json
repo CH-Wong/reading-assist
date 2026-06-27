@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^npx vite build$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

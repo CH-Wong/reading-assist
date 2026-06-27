@@ -1,0 +1,19 @@
+{
+  "app": "node bin/cdk.js",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package.json",
+      "package-lock.json",
+      "node_modules"
+    ]
+  },
+  "context": {
+    "@aws-cdk/core:defaultCrossStackReferences": "both"
+  }
+}

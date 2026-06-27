@@ -3,6 +3,22 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+/node_modules
+cdk/node_modules/
+cdk/cdk.out/
+cdk/**/*.d.ts
+cdk/*.js
+!cdk/bin/*.js
+!cdk/lib/*.js
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+
+# Environment files (secrets)
+.env
+.env.local
+.env.production
+
 # C extensions
 *.so
 

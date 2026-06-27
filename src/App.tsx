@@ -1,0 +1,177 @@
+import { useState, useCallback, useRef } from 'react';
+import type { Language, TranslationResult } from './types';
+import LanguageSelector from './components/LanguageSelector';
+import TextEditor from './components/TextEditor';
+import TranslationPanel from './components/TranslationPanel';
+import ImageUpload from './components/ImageUpload';
+
+// Retrieve API key from localStorage, or prompt user
+function getApiKey(): string {
+  const stored = localStorage.getItem('reading-assist-api-key');
+  if (stored) return stored;
+  const key = prompt(
+    'Enter your DeepSeek API key to enable translations.\n' +
+    '(It will be stored locally in your browser and never sent anywhere except DeepSeek.)'
+  );
+  if (key) {
+    localStorage.setItem('reading-assist-api-key', key);
+    return key;
+  }
+  return '';
+}
+
+export default function App() {
+  const [sourceLang, setSourceLang] = useState<Language | 'auto'>('zh-CN');
+  const [targetLang, setTargetLang] = useState<Language>('en');
+  const handleTargetLangChange = useCallback((lang: Language | 'auto') => {
+    if (lang !== 'auto') setTargetLang(lang);
+  }, []);
+  const [ocrSourceLang, setOcrSourceLang] = useState<Language | 'auto'>('auto');
+
+  const [editorContent, setEditorContent] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+
+  const apiKeyRef = useRef<string>(getApiKey());
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const abortRef = useRef<AbortController>();
+
+  const handleSelectionChange = useCallback(
+    (text: string) => {
+      setSelectedText(text);
+
+      // Cancel any in-flight translation request
+      abortRef.current?.abort();
+
+      // Debounce: wait 400ms after selection stabilizes
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      if (!text.trim() || !apiKeyRef.current) {
+        setTranslationResult(null);
+        setTranslationError(null);
+        return;
+      }
+
+      debounceRef.current = setTimeout(async () => {
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        setIsTranslating(true);
+        setTranslationError(null);
+
+        try {
+          const { fetchTranslation } = await import('./services/translation');
+          const result = await fetchTranslation(
+            apiKeyRef.current,
+            text,
+            sourceLang,
+            targetLang,
+            controller.signal
+          );
+          // Only update state if this request wasn't aborted
+          if (!controller.signal.aborted) {
+            setTranslationResult(result);
+          }
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            // Request was intentionally cancelled — ignore
+            return;
+          }
+          setTranslationError(err instanceof Error ? err.message : 'Translation failed');
+          setTranslationResult(null);
+        } finally {
+          // Only clear loading if this is still the current request
+          if (abortRef.current === controller) {
+            setIsTranslating(false);
+          }
+        }
+      }, 400);
+    },
+    [sourceLang, targetLang]
+  );
+
+  const handleOcrText = useCallback((text: string) => {
+    // Append OCR text to the editor, preceded by a separator
+    const separator = editorContent ? '<hr/><p><em>[OCR extracted text]</em></p>' : '';
+    setEditorContent(prev => prev + separator + `<p>${escapeHtml(text)}</p>`);
+  }, [editorContent]);
+
+  const handleApiKeyChange = () => {
+    const key = prompt('Enter your DeepSeek API key:');
+    if (key) {
+      localStorage.setItem('reading-assist-api-key', key);
+      apiKeyRef.current = key;
+    }
+  };
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="header-top">
+          <h1 className="app-title">📖 Reading Assist</h1>
+          <button className="api-key-btn" onClick={handleApiKeyChange} title="Change API key">
+            🔑 API Key
+          </button>
+        </div>
+
+        <div className="language-bar">
+          <LanguageSelector
+            label="Source"
+            value={sourceLang}
+            onChange={setSourceLang}
+          />
+          <span className="lang-arrow">→</span>
+          <LanguageSelector
+            label="Target"
+            value={targetLang}
+            onChange={handleTargetLangChange}
+          />
+        </div>
+      </header>
+
+      <main className="app-main">
+        <section className="editor-section">
+          <div className="section-header">
+            <h2>Text Editor</h2>
+            <ImageUpload
+              onTextExtracted={handleOcrText}
+              sourceLang={ocrSourceLang}
+              onSourceLangChange={setOcrSourceLang}
+            />
+          </div>
+          <TextEditor
+            value={editorContent}
+            onChange={setEditorContent}
+            onSelectionChange={handleSelectionChange}
+          />
+        </section>
+
+        <aside className="translation-section">
+          <div className="section-header">
+            <h2>Reading Help</h2>
+          </div>
+          <TranslationPanel
+            result={translationResult}
+            isLoading={isTranslating}
+            error={translationError}
+            selectedText={selectedText}
+          />
+        </aside>
+      </main>
+    </div>
+  );
+}
+
+/** Simple HTML entity escaping for pasted OCR text */
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"']/g, ch => map[ch] ?? ch);
+}
