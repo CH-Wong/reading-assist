@@ -8,6 +8,22 @@ interface TextEditorProps {
 
 export default function TextEditor({ value, onChange, onSelectionChange }: TextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const isInternalChange = useRef(false);
+
+  // Sync external value changes (e.g. OCR text, paste, clear) into the editable div.
+  // We skip syncing when the change originated from user typing inside the editor
+  // to avoid disrupting cursor position.
+  useEffect(() => {
+    if (!editorRef.current) return;
+    if (isInternalChange.current) {
+      // This re-render was triggered by our own onChange — content already matches
+      isInternalChange.current = false;
+      return;
+    }
+    if (editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value;
+    }
+  }, [value]);
 
   const handleSelection = useCallback(() => {
     const selection = window.getSelection();
@@ -35,27 +51,28 @@ export default function TextEditor({ value, onChange, onSelectionChange }: TextE
     return () => document.removeEventListener('selectionchange', handleSelection);
   }, [handleSelection]);
 
-  const execCommand = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
+  const syncToParent = () => {
     if (editorRef.current) {
+      isInternalChange.current = true;
       onChange(editorRef.current.innerHTML);
     }
+  };
+
+  const execCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    syncToParent();
     editorRef.current?.focus();
   };
 
   const handleInput = () => {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
-    }
+    syncToParent();
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
     document.execCommand('insertText', false, text);
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
-    }
+    syncToParent();
   };
 
   return (

@@ -4,6 +4,7 @@ import LanguageSelector from './components/LanguageSelector';
 import TextEditor from './components/TextEditor';
 import TranslationPanel from './components/TranslationPanel';
 import ImageUpload from './components/ImageUpload';
+import type { OcrStatus } from './components/ImageUpload';
 
 // Retrieve API key from localStorage, or prompt user
 function getApiKey(): string {
@@ -33,6 +34,7 @@ export default function App() {
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+  const [ocrStatus, setOcrStatus] = useState<OcrStatus>({ state: 'idle' });
 
   const apiKeyRef = useRef<string>(getApiKey());
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -95,8 +97,13 @@ export default function App() {
   const handleOcrText = useCallback((text: string) => {
     // Append OCR text to the editor, preceded by a separator
     const separator = editorContent ? '<hr/><p><em>[OCR extracted text]</em></p>' : '';
-    setEditorContent(prev => prev + separator + `<p>${escapeHtml(text)}</p>`);
+    const newContent = (editorContent ? editorContent + separator : '') + `<p>${escapeHtml(text)}</p>`;
+    setEditorContent(newContent);
   }, [editorContent]);
+
+  const handleOcrStatusChange = useCallback((status: OcrStatus) => {
+    setOcrStatus(status);
+  }, []);
 
   const handleApiKeyChange = () => {
     const key = prompt('Enter your DeepSeek API key:');
@@ -134,11 +141,26 @@ export default function App() {
       <main className="app-main">
         <section className="editor-section">
           <div className="section-header">
-            <h2>Text Editor</h2>
+            <h2>
+              Text Editor
+              {ocrStatus.state === 'success' && (
+                <span className="ocr-status ocr-status--success" style={{ marginLeft: 8 }}>
+                  <span className="ocr-status-dot" />
+                  {ocrStatus.message ?? 'OCR complete'}
+                </span>
+              )}
+              {ocrStatus.state === 'processing' && (
+                <span className="ocr-status ocr-status--processing" style={{ marginLeft: 8 }}>
+                  <span className="ocr-status-dot" />
+                  {ocrStatus.message ?? 'Processing...'}
+                </span>
+              )}
+            </h2>
             <ImageUpload
               onTextExtracted={handleOcrText}
               sourceLang={ocrSourceLang}
               onSourceLangChange={setOcrSourceLang}
+              onOcrStatusChange={handleOcrStatusChange}
             />
           </div>
           <TextEditor
