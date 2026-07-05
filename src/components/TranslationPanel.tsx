@@ -1,10 +1,13 @@
-import type { TranslationResult } from '../types';
+import type { TranslationResult, PhoneticResult } from '../types';
 
 interface TranslationPanelProps {
   result: TranslationResult | null;
   isLoading: boolean;
   error: string | null;
   selectedText: string;
+  phoneticResult: PhoneticResult | null;
+  isPhoneticLoading: boolean;
+  phoneticError: string | null;
 }
 
 export default function TranslationPanel({
@@ -12,6 +15,9 @@ export default function TranslationPanel({
   isLoading,
   error,
   selectedText,
+  phoneticResult,
+  isPhoneticLoading,
+  phoneticError,
 }: TranslationPanelProps) {
   if (!selectedText) {
     return (
@@ -68,6 +74,14 @@ export default function TranslationPanel({
         )}
       </div>
 
+      {/* Phonetic transcription section */}
+      <PhoneticSection
+        phoneticResult={phoneticResult}
+        isLoading={isPhoneticLoading}
+        error={phoneticError}
+        selectedText={selectedText}
+      />
+
       <div className="entries-list">
         {result.entries.map((entry, idx) => (
           <div key={idx} className="dictionary-entry">
@@ -121,6 +135,74 @@ export default function TranslationPanel({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Sub-component for displaying phonetic transcription (Pinyin, IPA, etc.) */
+function PhoneticSection({
+  phoneticResult,
+  isLoading,
+  error,
+  selectedText,
+}: {
+  phoneticResult: PhoneticResult | null;
+  isLoading: boolean;
+  error: string | null;
+  selectedText: string;
+}) {
+  if (isLoading) {
+    return (
+      <div className="phonetic-section phonetic-section--loading">
+        <div className="spinner spinner--small" />
+        <span>Generating phonetic transcription...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="phonetic-section phonetic-section--error">
+        <span className="error-icon">⚠️</span>
+        <span className="phonetic-error-text">{error}</span>
+      </div>
+    );
+  }
+
+  if (!phoneticResult || phoneticResult.readings.length === 0) {
+    return null;
+  }
+
+  const hasNotes = phoneticResult.sandhiNotes && phoneticResult.sandhiNotes.length > 0;
+
+  return (
+    <div className="phonetic-section">
+      <div className="phonetic-header">
+        <span className="phonetic-system-badge">{phoneticResult.phoneticSystem}</span>
+        <span className="phonetic-combined">{phoneticResult.combinedPhonetic}</span>
+      </div>
+
+      {/* Character-by-character ruby-style display */}
+      <div className="phonetic-ruby-grid">
+        {phoneticResult.readings.map((reading, idx) => (
+          <div key={idx} className="ruby-char-group" title={reading.note}>
+            <span className="ruby-text">{reading.text}</span>
+            <span className="ruby-phonetic">{reading.phonetic}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Sandhi notes */}
+      {hasNotes && (
+        <div className="sandhi-notes">
+          <span className="sandhi-label">🔊 Tone Sandhi:</span>
+          <ul>
+            {phoneticResult.sandhiNotes.map((note, idx) => (
+              <li key={idx}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

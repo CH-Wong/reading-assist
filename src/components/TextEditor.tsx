@@ -1,9 +1,12 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useMemo } from 'react';
 
 interface TextEditorProps {
   value: string;
   onChange: (text: string) => void;
-  onSelectionChange: (selectedText: string, range: { start: number; end: number } | null) => void;
+  onSelectionChange: (
+    selectedText: string,
+    selection: { start: number; end: number; fullText: string } | null
+  ) => void;
 }
 
 export default function TextEditor({ value, onChange, onSelectionChange }: TextEditorProps) {
@@ -43,7 +46,17 @@ export default function TextEditor({ value, onChange, onSelectionChange }: TextE
     const start = preCaretRange.toString().length;
     const end = start + selectedText.length;
 
-    onSelectionChange(selectedText, { start, end });
+    // Get full plain text for context extraction
+    const fullHtml = editorRef.current.innerHTML;
+    const fullText = fullHtml
+      .replace(/<[^>]*>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'");
+
+    onSelectionChange(selectedText, { start, end, fullText });
   }, [onSelectionChange]);
 
   useEffect(() => {
@@ -74,6 +87,18 @@ export default function TextEditor({ value, onChange, onSelectionChange }: TextE
     document.execCommand('insertText', false, text);
     syncToParent();
   };
+
+  // Compute plain-text character count (strip HTML tags)
+  const charCount = useMemo(() => {
+    const plain = value
+      .replace(/<[^>]*>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'");
+    return plain.length;
+  }, [value]);
 
   return (
     <div className="text-editor-wrapper">
@@ -131,6 +156,9 @@ export default function TextEditor({ value, onChange, onSelectionChange }: TextE
         onPaste={handlePaste}
         data-placeholder="Paste or type your foreign language text here..."
       />
+      <div className="editor-footer">
+        <span className="char-counter">{charCount.toLocaleString()} character{charCount !== 1 ? 's' : ''}</span>
+      </div>
     </div>
   );
 }

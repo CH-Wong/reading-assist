@@ -20,6 +20,27 @@ export interface DictionaryEntry {
   definitions: Definition[];
   examples: Example[];
   frequency?: 'common' | 'rare' | 'formal' | 'informal';
+  /** Character-level phonetic readings from the dedicated phonetic service */
+  charReadings?: CharReading[];
+  /** Sandhi notes explaining tone changes applied */
+  sandhiNotes?: string[];
+}
+
+/** A single character or word with its phonetic reading */
+export interface CharReading {
+  text: string;        // The original character(s)
+  phonetic: string;    // Phonetic reading (Pinyin, IPA, etc.)
+  note?: string;       // Optional note about sandhi or irregular reading
+}
+
+/** Full phonetic result from the dedicated phonetic LLM service */
+export interface PhoneticResult {
+  sourceText: string;          // The original text
+  sourceLang: Language | 'auto';
+  phoneticSystem: string;      // e.g. "Pinyin", "Jyutping", "IPA"
+  readings: CharReading[];     // Character-by-character readings
+  combinedPhonetic: string;    // Full phonetic string (e.g. "nǐ hǎo")
+  sandhiNotes: string[];       // Explanation of sandhi changes applied
 }
 
 export interface Definition {

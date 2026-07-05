@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { Language, TranslationResult } from './types';
+import type { Language, TranslationResult, PhoneticResult } from './types';
 import LanguageSelector from './components/LanguageSelector';
 import TextEditor from './components/TextEditor';
 import TranslationPanel from './components/TranslationPanel';
@@ -34,6 +34,9 @@ export default function App() {
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+  const [phoneticResult, setPhoneticResult] = useState<PhoneticResult | null>(null);
+  const [isPhoneticLoading, setIsPhoneticLoading] = useState(false);
+  const [phoneticError, setPhoneticError] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>({ state: 'idle' });
 
   const apiKeyRef = useRef<string>(getApiKey());
@@ -41,7 +44,7 @@ export default function App() {
   const abortRef = useRef<AbortController>();
 
   const handleSelectionChange = useCallback(
-    (text: string) => {
+    (text: string, selection: { start: number; end: number; fullText: string } | null) => {
       setSelectedText(text);
 
       // Cancel any in-flight translation request
@@ -53,6 +56,8 @@ export default function App() {
       if (!text.trim() || !apiKeyRef.current) {
         setTranslationResult(null);
         setTranslationError(null);
+        setPhoneticResult(null);
+        setPhoneticError(null);
         return;
       }
 
@@ -62,19 +67,61 @@ export default function App() {
 
         setIsTranslating(true);
         setTranslationError(null);
+        setIsPhoneticLoading(true);
+        setPhoneticError(null);
 
         try {
+          // Fire both translation and phonetic requests in parallel
           const { fetchTranslation } = await import('./services/translation');
-          const result = await fetchTranslation(
-            apiKeyRef.current,
-            text,
-            sourceLang,
-            targetLang,
-            controller.signal
-          );
+          const { fetchPhonetic, extractSurroundingContext } = await import('./services/phonetic');
+
+          // Extract surrounding context for sandhi analysis
+          let surroundingCtx = '';
+          if (selection) {
+            const { sentence } = extractSurroundingContext(
+              selection.fullText,
+              selection.start,
+              selection.end
+            );
+            surroundingCtx = sentence;
+          }
+
+          const [translation, phonetic] = await Promise.allSettled([
+            fetchTranslation(
+              apiKeyRef.current,
+              text,
+              sourceLang,
+              targetLang,
+              controller.signal
+            ),
+            fetchPhonetic(
+              apiKeyRef.current,
+              text,
+              surroundingCtx,
+              sourceLang,
+              controller.signal
+            ),
+          ]);
+
           // Only update state if this request wasn't aborted
           if (!controller.signal.aborted) {
-            setTranslationResult(result);
+            if (translation.status === 'fulfilled') {
+              setTranslationResult(translation.value);
+            } else {
+              setTranslationError(
+                translation.reason instanceof Error ? translation.reason.message : 'Translation failed'
+              );
+              setTranslationResult(null);
+            }
+
+            if (phonetic.status === 'fulfilled') {
+              setPhoneticResult(phonetic.value);
+            } else {
+              setPhoneticError(
+                phonetic.reason instanceof Error ? phonetic.reason.message : 'Phonetic lookup failed'
+              );
+              setPhoneticResult(null);
+            }
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') {
@@ -87,6 +134,7 @@ export default function App() {
           // Only clear loading if this is still the current request
           if (abortRef.current === controller) {
             setIsTranslating(false);
+            setIsPhoneticLoading(false);
           }
         }
       }, 400);
@@ -179,6 +227,9 @@ export default function App() {
             isLoading={isTranslating}
             error={translationError}
             selectedText={selectedText}
+            phoneticResult={phoneticResult}
+            isPhoneticLoading={isPhoneticLoading}
+            phoneticError={phoneticError}
           />
         </aside>
       </main>

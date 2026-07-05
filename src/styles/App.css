@@ -246,6 +246,23 @@ body {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+.editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.char-counter {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+
 /* ===== Translation Panel ===== */
 .translation-panel {
   flex: 1;
@@ -437,6 +454,143 @@ body {
 .example-translation {
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+/* ===== Phonetic Transcription Section ===== */
+.phonetic-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8ecff 100%);
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-light);
+}
+
+.phonetic-section--loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.phonetic-section--error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--error);
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.phonetic-error-text {
+  color: var(--text-secondary);
+}
+
+.phonetic-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.phonetic-system-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+}
+
+.phonetic-combined {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Ruby-style character grid for CJK languages */
+.phonetic-ruby-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.ruby-char-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 36px;
+  padding: 4px 6px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition);
+}
+
+.ruby-char-group:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.ruby-text {
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.ruby-phonetic {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: var(--accent);
+  text-align: center;
+  word-break: keep-all;
+}
+
+/* Tone sandhi notes */
+.sandhi-notes {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fffbeb;
+  border-radius: 6px;
+  border: 1px solid #fde68a;
+}
+
+.sandhi-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #92400e;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sandhi-notes ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sandhi-notes li {
+  font-size: 0.78rem;
+  color: #78350f;
+  padding: 2px 0;
+  padding-left: 12px;
+  position: relative;
+}
+
+.sandhi-notes li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #d97706;
 }
 
 /* ===== Image Upload ===== */
@@ -714,6 +868,24 @@ body {
   .upload-btn {
     font-size: 0.75rem;
     padding: 6px 10px;
+  }
+
+  /* Phonetic on mobile */
+  .ruby-char-group {
+    min-width: 30px;
+    padding: 3px 4px;
+  }
+
+  .ruby-text {
+    font-size: 1.15rem;
+  }
+
+  .ruby-phonetic {
+    font-size: 0.65rem;
+  }
+
+  .phonetic-combined {
+    font-size: 0.9rem;
   }
 
   /* Ensure editor content area always has visible space */

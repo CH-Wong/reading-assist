@@ -32,3 +32,17 @@ export function getLanguageLabel(code: Language | 'auto'): string {
   const option = LANGUAGE_OPTIONS.find(o => o.code === code);
   return option?.label ?? code;
 }
+
+/** Which phonetic system to use for each supported language */
+export const PHONETIC_SYSTEMS: Record<string, string> = {
+  'zh-CN': 'Hanyu Pinyin',
+  'zh-HK': 'Jyutping',
+  'nl': 'IPA',
+  'de': 'IPA',
+  'en': 'IPA',
+};
+
+/** Whether a language uses character-by-character phonetic readings (CJK languages) */
+export function isCJKLanguage(lang: Language | 'auto'): boolean {
+  return lang === 'zh-CN' || lang === 'zh-HK';
+}

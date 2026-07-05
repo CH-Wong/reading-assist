@@ -104,7 +104,7 @@ export async function fetchTranslation(
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildUserPrompt(text, sourceLang, targetLang) },
@@ -157,7 +157,7 @@ export async function fetchSimpleTranslation(
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       messages: [
         { role: 'system', content: 'You are a translator. Respond with only the translation, no explanation.' },
         { role: 'user', content: `Translate from ${source} to ${target}: "${text}"` },
