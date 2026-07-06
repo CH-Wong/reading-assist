@@ -1,0 +1,203 @@
+/* ===== Reading Assist Popup Styles ===== */
+:root {
+  --ra-bg: #ffffff;
+  --ra-bg-secondary: #f5f6f8;
+  --ra-text: #1a1a2e;
+  --ra-text-secondary: #666;
+  --ra-border: #e0e3e8;
+  --ra-accent: #4a6cf7;
+  --ra-accent-hover: #3b5de7;
+  --ra-radius: 8px;
+  --ra-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 360px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--ra-bg);
+  color: var(--ra-text);
+  font-size: 14px;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--ra-border);
+}
+.popup-header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.popup-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--ra-border);
+}
+.popup-tab {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--ra-text-secondary);
+  transition: all 0.15s;
+}
+.popup-tab.active {
+  color: var(--ra-accent);
+  border-bottom-color: var(--ra-accent);
+  font-weight: 600;
+}
+
+.popup-section {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.popup-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--ra-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.popup-input, .popup-select {
+  padding: 8px 10px;
+  border: 1px solid var(--ra-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--ra-bg);
+  color: var(--ra-text);
+}
+.popup-input:focus, .popup-select:focus {
+  outline: none;
+  border-color: var(--ra-accent);
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.15);
+}
+
+.popup-hint {
+  font-size: 0.75rem;
+  color: var(--ra-text-secondary);
+  line-height: 1.4;
+}
+
+/* ===== Toggle Switch ===== */
+.popup-toggle-row {
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.popup-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #ccc;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 0;
+}
+
+.popup-toggle-on {
+  background: var(--ra-accent);
+}
+
+.popup-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.popup-toggle-on .popup-toggle-knob {
+  transform: translateX(20px);
+}
+
+.popup-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.popup-btn-primary {
+  background: var(--ra-accent);
+  color: #fff;
+}
+.popup-btn-primary:hover { background: var(--ra-accent-hover); }
+.popup-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.popup-btn-secondary {
+  background: var(--ra-bg-secondary);
+  color: var(--ra-text);
+  border: 1px solid var(--ra-border);
+}
+.popup-btn-secondary:hover { background: var(--ra-border); }
+.popup-btn-sm {
+  padding: 4px 8px;
+  border: 1px solid var(--ra-border);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  background: var(--ra-bg-secondary);
+  cursor: pointer;
+}
+
+.popup-ocr-buttons {
+  display: flex;
+  gap: 8px;
+}
+.popup-ocr-filename {
+  font-size: 0.75rem;
+  color: var(--ra-text-secondary);
+}
+.popup-ocr-error {
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 0.8rem;
+}
+.popup-ocr-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.popup-ocr-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.popup-ocr-textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--ra-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--ra-bg-secondary);
+}

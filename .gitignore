@@ -3,8 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-/node_modules
-cdk/node_modules/
+node_modules/
+.vite/
 cdk/cdk.out/
 cdk/**/*.d.ts
 cdk/*.js

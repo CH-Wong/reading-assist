@@ -1,4 +1,4 @@
-import type { TranslationResult } from '../types';
+import type { TranslationResult } from '@reading-assist/shared';
 
 interface TranslationPanelProps {
   result: TranslationResult | null;

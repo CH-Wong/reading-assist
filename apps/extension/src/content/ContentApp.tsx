@@ -1,0 +1,202 @@
+import React, { useState, useEffect, useRef } from 'react';
+import type { TranslationResult, Language } from '@reading-assist/shared';
+import { fetchTranslation } from '@reading-assist/shared';
+import { getApiKey, getSettings, onSettingsChanged, getEnabled, onEnabledChanged } from '../services/storage';
+import type { ExtensionSettings } from '../services/storage';
+
+/** Position the floating panel near the user's text selection */
+function getSelectionRect(): DOMRect | null {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  const rects = range.getClientRects();
+  if (rects.length === 0) return null;
+  return rects[0];
+}
+
+export default function ContentApp() {
+  const [selectedText, setSelectedText] = useState('');
+  const [translation, setTranslation] = useState<TranslationResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [settings, setSettings] = useState<ExtensionSettings>({ sourceLang: 'zh-CN', targetLang: 'en' });
+  const [apiKey, setApiKey] = useState('');
+  const [enabled, setEnabled] = useState(true);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const abortRef = useRef<AbortController>();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Load settings and API key on mount
+  useEffect(() => {
+    getSettings().then(setSettings);
+    getEnabled().then(setEnabled);
+    getApiKey().then(key => {
+      setApiKey(key);
+      if (!key) {
+        setError('No API key set. Click the extension icon to configure.');
+      }
+    });
+    const unsubSettings = onSettingsChanged(setSettings);
+    const unsubEnabled = onEnabledChanged(setEnabled);
+    return () => { unsubSettings(); unsubEnabled(); };
+  }, []);
+
+  // Listen for text selection on the page
+  useEffect(() => {
+    const handleSelection = () => {
+      if (!enabled) return;
+
+      const sel = window.getSelection();
+      const text = sel?.toString().trim() ?? '';
+
+      if (!text || text.length > 200) {
+        // Too long — likely not a word lookup
+        setSelectedText('');
+        setIsVisible(false);
+        return;
+      }
+
+      setSelectedText(text);
+      // Immediately clear old result so user sees loading, not stale data
+      setTranslation(null);
+      setError(null);
+
+      // Get position
+      const rect = getSelectionRect();
+      if (rect) {
+        const top = rect.bottom + window.scrollY + 8;
+        const left = Math.max(8, rect.left + window.scrollX + rect.width / 2 - 160);
+        setPanelPos({ top, left });
+      }
+
+      setIsVisible(true);
+
+      // Debounced API call
+      abortRef.current?.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      if (!apiKey) return;
+
+      debounceRef.current = setTimeout(async () => {
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+          const result = await fetchTranslation(
+            'https://api.deepseek.com',
+            apiKey, text,
+            settings.sourceLang as Language,
+            settings.targetLang as Language,
+            controller.signal
+          );
+
+          if (!controller.signal.aborted) {
+            setTranslation(result);
+          }
+        } catch (err: any) {
+          if (err?.name === 'AbortError') return;
+          setError(err instanceof Error ? err.message : 'Translation failed');
+        } finally {
+          if (abortRef.current === controller) {
+            setIsLoading(false);
+          }
+        }
+      }, 200);  // Debounce: wait 200ms after selection stabilizes
+    };
+
+    document.addEventListener('selectionchange', handleSelection);
+    return () => document.removeEventListener('selectionchange', handleSelection);
+  }, [apiKey, settings, enabled]);
+
+  // Hide panel when clicking elsewhere
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setIsVisible(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  if (!isVisible || !selectedText) return null;
+
+  return (
+    <div
+      ref={panelRef}
+      className="ra-panel"
+      style={{
+        position: 'absolute',
+        top: panelPos?.top ?? 0,
+        left: panelPos?.left ?? 0,
+      }}
+    >
+      {/* Header */}
+      <div className="ra-panel-header">
+        <span className="ra-selected-text">{selectedText}</span>
+        <button className="ra-close-btn" onClick={() => setIsVisible(false)}>×</button>
+      </div>
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="ra-loading">
+          <div className="ra-spinner" />
+          <span>Translating...</span>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && !isLoading && (
+        <div className="ra-error">
+          <span>⚠ {error}</span>
+        </div>
+      )}
+
+      {/* Translation */}
+      {translation && !isLoading && (
+        <div className="ra-translation">
+          {translation.rawTranslation && (
+            <p className="ra-raw-translation">{translation.rawTranslation}</p>
+          )}
+        </div>
+      )}
+
+      {/* Dictionary entries */}
+      {translation && translation.entries.length > 0 && (
+        <div className="ra-entries">
+          {translation.entries.slice(0, 3).map((entry, idx) => (
+            <div key={idx} className="ra-entry">
+              <div className="ra-entry-head">
+                <span className="ra-entry-word">{entry.word}</span>
+                <span className="ra-entry-phonetic">{entry.phonetic}</span>
+                {entry.partOfSpeech && <span className="ra-entry-pos">{entry.partOfSpeech}</span>}
+                {entry.frequency && <span className={`ra-freq ra-freq-${entry.frequency}`}>{entry.frequency}</span>}
+              </div>
+              <ol className="ra-definitions">
+                {entry.definitions.map((d, di) => (
+                  <li key={di}>{d.meaning}</li>
+                ))}
+              </ol>
+              {entry.examples.length > 0 && (
+                <div className="ra-examples">
+                  {entry.examples.slice(0, 2).map((ex, ei) => (
+                    <div key={ei} className="ra-example">
+                      <p className="ra-ex-source">{ex.source}</p>
+                      <p className="ra-ex-translation">{ex.translation}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

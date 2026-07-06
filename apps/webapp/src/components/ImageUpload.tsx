@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import type { Language } from '../types';
+import type { Language } from '@reading-assist/shared';
 import LanguageSelector from './LanguageSelector';
 
 interface ImageUploadProps {
@@ -68,8 +68,7 @@ export default function ImageUpload({
     setPreview(previewUrl);
 
     try {
-      // Dynamically import the OCR service
-      const { extractTextFromImage } = await import('../services/ocr');
+      const { extractTextFromImage } = await import('@reading-assist/shared');
       const result = await extractTextFromImage(file, sourceLang);
 
       if (result.text) {

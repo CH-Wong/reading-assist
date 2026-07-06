@@ -1,0 +1,204 @@
+/* ==========================================
+   Reading Assist — Content Script Styles
+   Injected into Shadow DOM for full isolation
+   from the host page's CSS.
+   ========================================== */
+
+:host {
+  all: initial;
+}
+
+#ra-mount {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 13px;
+  color: #1a1a2e;
+  line-height: 1.5;
+}
+
+/* ===== Floating Panel ===== */
+.ra-panel {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  width: 340px;
+  max-height: 480px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #dde1e6;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 0;
+  animation: ra-fadeIn 0.15s ease-out;
+}
+
+@keyframes ra-fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Panel Header ===== */
+.ra-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f2f5;
+  background: #fafbfc;
+  border-radius: 12px 12px 0 0;
+}
+
+.ra-selected-text {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #1a1a2e;
+}
+
+.ra-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.ra-close-btn:hover {
+  background: #f0f2f5;
+  color: #333;
+}
+
+/* ===== Loading & Error ===== */
+.ra-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.ra-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e0e3e8;
+  border-top-color: #4a6cf7;
+  border-radius: 50%;
+  animation: ra-spin 0.6s linear infinite;
+}
+.ra-spinner-sm {
+  width: 12px;
+  height: 12px;
+}
+
+@keyframes ra-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ra-error {
+  padding: 8px 14px;
+  margin: 0 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.8rem;
+}
+
+/* ===== Raw Translation ===== */
+.ra-raw-translation {
+  padding: 8px 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #4a6cf7;
+}
+
+/* ===== Dictionary Entries ===== */
+.ra-entries {
+  padding: 6px 0;
+}
+
+.ra-entry {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f5f6f8;
+}
+.ra-entry:last-child { border-bottom: none; }
+
+.ra-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.ra-entry-word {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.ra-entry-phonetic {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.ra-entry-pos {
+  padding: 1px 6px;
+  background: #f0f2f5;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-style: italic;
+  color: #666;
+}
+
+.ra-freq {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.ra-freq-common { background: #d1fae5; color: #065f46; }
+.ra-freq-rare { background: #fef3c7; color: #92400e; }
+.ra-freq-formal { background: #dbeafe; color: #1e40af; }
+.ra-freq-informal { background: #fce7f3; color: #9d174d; }
+
+.ra-definitions {
+  margin: 4px 0 0 16px;
+  font-size: 0.82rem;
+  color: #444;
+}
+.ra-definitions li { margin-bottom: 2px; }
+
+.ra-examples {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 3px solid #e8ecff;
+}
+
+.ra-example {
+  margin-bottom: 4px;
+}
+
+.ra-ex-source {
+  font-size: 0.8rem;
+  color: #333;
+  font-style: italic;
+}
+
+.ra-ex-translation {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 1px;
+}
+
+/* ===== Scrollbar ===== */
+.ra-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.ra-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ra-panel::-webkit-scrollbar-thumb {
+  background: #dde1e6;
+  border-radius: 2px;
+}

@@ -3,6 +3,7 @@
         "/^npx vite build$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "npm install": true
     }
 }

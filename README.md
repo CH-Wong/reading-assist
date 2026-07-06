@@ -1,38 +1,77 @@
 # 📖 Reading Assist
 
-**A web application for reading foreign texts** — providing dictionary-style translations, phonetic pronunciation guides, and OCR-based image text extraction. Designed initially for Simplified Chinese but fully extensible to any language.
+**A pair of applications for reading foreign texts** — a stand-alone web app and a browser extension. Both provide dictionary-style translations and OCR-based image text extraction. Designed initially for Mandarin Chinese but extensible to any language.
 
 > **Default source language:** Mandarin Chinese (Simplified)  
-> **Supported languages:** Mandarin Chinese, Cantonese, Dutch, English  
+> **Supported languages:** Mandarin Chinese, Cantonese, Dutch, German, English  
 > **Translation engine:** DeepSeek Chat (LLM-based via OpenAI-compatible API)
 
 ---
 
-## ✨ Key Features
+## 🏗️ Monorepo Structure
 
-### 1. Main View — Text Editor + Live Reading Help
+This project uses **npm workspaces** with a shared code package:
 
-| Component | Description |
-|-----------|-------------|
-| **Rich Text Editor** | A `contentEditable` area where users paste or type foreign language texts. Supports basic formatting (bold, italic, underline, headings, lists). |
-| **Live Translation Panel** | When the user selects/highlights any word or phrase, the panel shows a **dictionary-style result** that updates in real-time (~400ms debounce). |
-| **Dictionary Results** | Each result includes: |
-| | • **Simple translation** of the selected text |
-| | • **Phonetic pronunciation** — Pinyin with tone marks for Chinese, IPA/romanization for other languages |
-| | • **Multiple definitions** with part-of-speech labels (verb, noun, adjective, etc.) |
-| | • **Example sentences** showing the word in common usage, each with a target-language translation |
-| | • **Usage frequency labels** (common / rare / formal / informal) |
-| | • **Synonyms & antonyms** where applicable |
-| **Language Selectors** | Dropdown menus for Source and Target language. Source supports auto-detect mode for OCR. |
+```
+reading-assist/
+├── package.json                    # Workspace root — scripts to build everything
+├── packages/
+│   └── shared/                     # Shared types, translations, OCR, languages
+│       └── src/
+│           ├── types.ts
+│           ├── languages.ts
+│           ├── translation.ts
+│           └── ocr.ts
+├── apps/
+│   ├── webapp/                     # Stand-alone React SPA (Vite)
+│   │   ├── src/
+│   │   │   ├── App.tsx
+│   │   │   └── components/
+│   │   └── vite.config.ts
+│   └── extension/                  # Chrome + Firefox browser extension
+│       ├── src/
+│       │   ├── content/            # Content script (Shadow DOM overlay)
+│       │   ├── popup/              # Toolbar popup (settings + OCR)
+│       │   └── background/         # Service worker
+│       ├── manifest.json
+│       └── vite.config.ts
+└── cdk/                            # AWS CDK deployment (webapp only)
+```
 
-### 2. Image Scanning — OCR Text Extraction
+All shared logic lives once in `packages/shared/` — both apps import from `@reading-assist/shared`.
 
-| Component | Description |
-|-----------|-------------|
-| **Upload Button** | Located in the Text Editor section header. Click to upload an image. |
-| **Client-side OCR** | Uses **Tesseract.js** — all processing happens in the browser; no image data is sent to any server. |
-| **Language Selection** | Separate language selector for OCR, with an **auto-detect** option that tries multiple languages simultaneously. |
-| **Text Appending** | Extracted text is appended to the text editor (with a visual separator), ready for reading and selection lookups. |
+## ✨ Features
+
+Both the **web app** and **browser extension** share the same core capabilities:
+
+### Dictionary-Style Translations
+
+When you select/highlight a word or phrase, a panel shows:
+- **Simple translation** of the selected text
+- **Phonetic pronunciation** — Pinyin with tone marks for Chinese, IPA for others
+- **Multiple definitions** with part-of-speech labels (verb, noun, adjective, etc.)
+- **Example sentences** showing common usage, each with a translation
+- **Usage frequency labels** (common / rare / formal / informal)
+- **Synonyms & antonyms** where applicable
+
+### Web App — Text Editor
+
+- A `contentEditable` area to paste or type foreign texts with basic formatting
+- Live translation panel updates on text selection with ~400ms debounce
+- Language selectors for source (with auto-detect) and target
+
+### Browser Extension — Any Website
+
+- **Select text on any webpage** — news, social media, blogs — and a floating panel appears
+- **Shadow DOM** isolates styles from the host page
+- **Popup** for settings (API key, languages) and OCR image upload
+- Works on **Chrome** and **Firefox** (Manifest V3)
+
+### OCR — Image Text Extraction
+
+- Uses **Tesseract.js** — all processing happens in the browser; no image data sent to any server
+- Supports auto-detect across multiple languages simultaneously
+- Extracted text can be copied for use anywhere
 
 ---
 
@@ -42,152 +81,81 @@
 
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
-| **Framework** | React 18 + TypeScript | Component-based UI, strong typing, excellent ecosystem |
+| **Framework** | React 18 + TypeScript | Component-based UI, strong typing |
 | **Build Tool** | Vite 6 | Fast HMR, modern ESM-based bundling |
-| **Translation** | DeepSeek Chat API (OpenAI-compatible) | LLM prompt delivers structured dictionary results with no external dictionary API needed |
-| **OCR** | Tesseract.js 5 | Fully client-side; supports 100+ languages; no server costs |
-| **Styling** | Plain CSS (no framework) | Zero dependencies; keeps the bundle small and fully customizable |
-
-### Project Structure
-
-```
-reading-assist/
-├── index.html                    # Entry HTML
-├── package.json                  # Dependencies & scripts
-├── tsconfig.json                 # TypeScript configuration
-├── vite.config.ts                # Vite configuration
-├── README.md                     # This file
-├── public/
-│   └── favicon.svg               # App icon
-└── src/
-    ├── main.tsx                  # React entry point
-    ├── App.tsx                   # Root component — state management & layout
-    ├── vite-env.d.ts             # Vite type declarations
-    ├── types/
-    │   └── index.ts              # All TypeScript interfaces & types
-    ├── utils/
-    │   └── languages.ts          # Language definitions, OCR mappings, helpers
-    ├── services/
-    │   ├── translation.ts        # DeepSeek API client for dictionary results
-    │   └── ocr.ts                # Tesseract.js client for image text extraction
-    ├── components/
-    │   ├── LanguageSelector.tsx   # Reusable language dropdown
-    │   ├── TextEditor.tsx         # Rich text editor with selection tracking
-    │   ├── TranslationPanel.tsx   # Dictionary-style results display
-    │   └── ImageUpload.tsx        # Image upload → OCR workflow
-    └── styles/
-        └── App.css               # All application styles
-```
-
-### Data Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         User Action                              │
-│  ┌──────────────────────┐          ┌──────────────────────┐     │
-│  │ Paste/Type text      │          │ Upload Image         │     │
-│  └──────────┬───────────┘          └──────────┬───────────┘     │
-│             │                                 │                 │
-│             ▼                                 ▼                 │
-│  ┌──────────────────────┐          ┌──────────────────────┐     │
-│  │ TextEditor           │          │ ImageUpload          │     │
-│  │ (contentEditable)    │          │  → Tesseract.js OCR  │     │
-│  └──────────┬───────────┘          └──────────┬───────────┘     │
-│             │                                 │                 │
-│             │    ┌─────────────────────────────┘                 │
-│             │    │  Extracted text appended                     │
-│             ▼    ▼                                               │
-│  ┌──────────────────────────────────────────┐                  │
-│  │           Selection Detection             │                  │
-│  │  (window.getSelection, selectionchange)   │                  │
-│  └──────────────────┬───────────────────────┘                  │
-│                     │                                           │
-│                     ▼ (debounced 400ms)                         │
-│  ┌──────────────────────────────────────────┐                  │
-│  │         Translation Service              │                  │
-│  │  → DeepSeek Chat API (OpenAI-compatible)              │                  │
-│  │  → Structured LLM prompt (deepseek-chat)                 │                  │
-│  │  → Returns JSON with definitions,        │                  │
-│  │    pinyin, examples, frequency           │                  │
-│  └──────────────────┬───────────────────────┘                  │
-│                     │                                           │
-│                     ▼                                           │
-│  ┌──────────────────────────────────────────┐                  │
-│  │         TranslationPanel                  │                  │
-│  │  → Renders dictionary entry cards        │                  │
-│  │  → Shows phonetic, POS, definitions,     │                  │
-│  │    examples, frequency labels            │                  │
-│  └──────────────────────────────────────────┘                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Component Tree
-
-```
-<App>                              ← State hub: languages, editor content, selection, translation
-  ├── <Header>
-  │   ├── <LanguageSelector>       ← Source language (zh-CN, zh-HK, nl, en)
-  │   └── <LanguageSelector>       ← Target language (en, nl, zh-CN, zh-HK)
-  ├── <main>
-  │   ├── <TextEditor>             ← Left pane: contentEditable + formatting toolbar
-  │   │   └── <ImageUpload>        ← OCR button in section header
-  │   └── <TranslationPanel>       ← Right pane: live dictionary results
-  └── (API Key management via prompt/localStorage)
-```
-
-### Key Design Decisions
-
-#### Why an LLM instead of a dictionary API?
-Traditional dictionary APIs (like Youdao, Pleco, or Wiktionary) are language-specific and often require separate API keys for each language pair. An LLM-based approach:
-- **Works across ALL language pairs** with a single integration
-- Provides **rich structured data** (multiple definitions, examples, frequency) through careful prompt engineering
-- Can **auto-detect languages** and handle edge cases gracefully
-- Can be swapped for any OpenAI-compatible endpoint (local LLMs, Azure OpenAI, etc.)
-- The structured JSON prompt produces results comparable to dedicated dictionary services
-
-#### Why Tesseract.js over a cloud OCR service?
-- **Privacy**: Images never leave the user's browser
-- **No API costs**: Unlimited OCR usage
-- **Offline-capable**: Works without internet after initial worker download
-- **100+ languages**: Supports all four target languages
-
-#### Why `contentEditable` instead of a textarea?
-- Enables **basic text formatting** (bold, italic, etc.) that the user requested
-- Allows **rich text insertion** (OCR results with separators)
-- Supports **selection tracking** via the DOM Selection API for live translation lookups
+| **Translation** | DeepSeek Chat API | LLM prompt delivers structured dictionary results |
+| **OCR** | Tesseract.js 5 | Fully client-side; supports 100+ languages |
+| **Styling** | Plain CSS | Zero dependencies; small bundles |
+| **Monorepo** | npm workspaces | Shared code in `packages/shared/`, apps in `apps/` |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Node.js** 18+ and **npm** (or yarn/pnpm)
-- **A DeepSeek API key** (get one at [platform.deepseek.com](https://platform.deepseek.com/api-keys))
+- **Node.js** 18+ and **npm**
+- **A DeepSeek API key** ([platform.deepseek.com](https://platform.deepseek.com/api-keys))
 
-### Installation
+### Install & Build
 
 ```bash
-# Install dependencies
+# Install all workspaces (shared + both apps)
 npm install
 
-# Start the development server
-npm run dev
+# Build both apps
+npm run build
 ```
 
-The app opens at `http://localhost:5173`.
+### Development
+
+```bash
+# Web app dev server (localhost:5173, with HMR)
+npm run dev:webapp
+
+# Extension dev mode (watches files, rebuilds on change)
+# Load apps/extension/dist/ as unpacked extension once,
+# then click "Reload" in chrome://extensions after each rebuild.
+npm run dev:extension
+```
+
+### Individual Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run build:webapp` | Build SPA → `apps/webapp/dist/` |
+| `npm run build:extension` | Build extension → `apps/extension/dist/` |
+| `npm run build` | Build both |
+| `npm run dev:webapp` | Web app dev server at localhost:5173 |
+
+### Extension Installation
+
+#### Chrome / Edge
+1. Build: `npm run build:extension`
+2. Go to `chrome://extensions` → **Developer mode** → **Load unpacked** → `apps/extension/dist/`
+
+#### Firefox — Temporary (development)
+1. Build: `npm run build:firefox`
+2. Go to `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on** → select `apps/extension/dist-firefox/manifest.json`
+3. Removed when Firefox restarts.
+
+#### Firefox — Permanent
+**Option A: Developer Edition** (no Mozilla account needed)
+1. Install [Firefox Developer Edition](https://www.mozilla.org/firefox/developer/)
+2. Go to `about:config` → set `xpinstall.signatures.required` to `false`
+3. Package: `cd apps/extension/dist-firefox && zip -r ../reading-assist.xpi *`
+4. Drag `reading-assist.xpi` into Firefox or go to `about:addons` → gear → **Install Add-on From File**
+
+**Option B: AMO Unlisted** (works on regular Firefox, free)
+1. Build: `npm run build:firefox`, then zip `dist-firefox/` into `reading-assist.xpi`
+2. Sign up at [addons.mozilla.org](https://addons.mozilla.org), go to **Submit a New Add-on** → **On your own** (unlisted)
+3. Upload the `.xpi` — Mozilla auto-signs it within minutes
+4. Download the signed `.xpi` and open it in Firefox for a permanent install
 
 ### Configuration
 
-1. **API Key**: On first use, the app prompts for your DeepSeek API key. It is stored in `localStorage` and never sent anywhere except DeepSeek. Click the **🔑 API Key** button in the header to change it.
-2. **Languages**: Use the Source/Target dropdowns to configure translation direction.
-3. **OCR Language**: The image upload has its own language selector with an auto-detect option.
-
-### Production Build
-
-```bash
-npm run build    # Outputs to dist/
-npm run preview  # Preview the production build locally
-```
+- **API Key**: The web app prompts on first use (stored in `localStorage`). The extension stores it in `chrome.storage.sync` (synced across devices via your browser account).
+- **Languages**: Use the Source/Target dropdowns. Source supports auto-detect.
+- **OCR Language**: Separate language selector with auto-detect option.
 
 ---
 
@@ -327,25 +295,25 @@ npx cdk destroy
 
 | Concern | How It's Handled |
 |---------|-----------------|
-| **API Key** | Stored in `localStorage`. Never logged or sent to third parties. |
-| **Translated Text** | Sent to DeepSeek's API for processing. Subject to [DeepSeek's data usage policy](https://platform.deepseek.com/terms). |
+| **API Key** | Web app: `localStorage`. Extension: `chrome.storage.sync`. Never logged or sent to third parties. |
+| **Translated Text** | Sent to DeepSeek's API. Subject to [DeepSeek's data usage policy](https://platform.deepseek.com/terms). |
 | **Uploaded Images** | Processed entirely client-side via Tesseract.js. **Never** sent to any server. |
-| **No Backend** | Pure client-side application. No server component — deploy as static files. |
+| **No Backend** | Pure client-side. No server component — deploy as static files. |
+| **JSON Parse Errors** | Automatic retry with stricter prompt if the LLM returns malformed JSON. |
 
 ---
 
 ## 🔮 Future Enhancements
 
-- **Offline translation** via local LLMs (llama.cpp, Ollama) or pre-downloaded dictionary databases
+- **Offline translation** via local LLMs (Ollama) or pre-downloaded dictionaries
 - **Anki/Spaced Repetition export** — save looked-up words to flashcard decks
-- **Reading progress tracking** — highlight and save passages
-- **Text-to-speech** — hear pronunciation via browser's SpeechSynthesis API or external TTS
+- **Text-to-speech** — hear pronunciation via browser SpeechSynthesis API
 - **Dark mode** — theme toggle
-- **PDF import** — extract text from uploaded PDF documents
-- **Additional languages** — extend `LANGUAGE_OPTIONS` and `OCR_LANGUAGE_MAP` in `src/utils/languages.ts`
+- **PDF import** — extract text from uploaded PDFs
+- **Additional languages** — extend `LANGUAGE_OPTIONS` in `packages/shared/src/languages.ts`
 
 ---
 
 ## 📄 License
 
-This project is open source. See the [LICENSE](../LICENSE) file for details.
+Open source. See [LICENSE](LICENSE).

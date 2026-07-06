@@ -69,17 +69,70 @@ Return JSON in this format:
 }
 
 /**
+ * Parse the LLM response content into a TranslationResult.
+ * Handles common formatting issues: markdown code fences, trailing commas,
+ * truncated JSON, and unexpected text before/after the JSON object.
+ * On failure, returns null so the caller can retry.
+ */
+function parseTranslationJson(content: string): TranslationResult | null {
+  let cleaned = content
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
+  try {
+    const result = JSON.parse(cleaned);
+    if (isValidResult(result)) return result;
+  } catch { /* continue */ }
+
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const result = JSON.parse(jsonMatch[0]);
+      if (isValidResult(result)) return result;
+    } catch { /* continue */ }
+
+    let fixed = jsonMatch[0]
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3');
+    try {
+      const result = JSON.parse(fixed);
+      if (isValidResult(result)) return result;
+    } catch { /* continue */ }
+  }
+
+  return null;
+}
+
+function isValidResult(obj: any): obj is TranslationResult {
+  return obj && typeof obj.selectedText === 'string' && Array.isArray(obj.entries);
+}
+
+function buildRetryPrompt(
+  text: string,
+  sourceLang: Language | 'auto',
+  targetLang: Language
+): string {
+  const source = sourceLang === 'auto'
+    ? 'the source language (auto-detected)'
+    : LANGUAGE_NAMES[sourceLang as Language] ?? sourceLang;
+  const target = LANGUAGE_NAMES[targetLang] ?? targetLang;
+
+  return `CRITICAL: You MUST respond with ONLY a raw JSON object. Do NOT wrap it in markdown code blocks. Do NOT add any text before or after the JSON. The response must start with "{" and end with "}".
+
+Translate and provide dictionary information for: "${text}"
+From ${source} to ${target}.
+
+Required JSON format:
+{"sourceLang":"${sourceLang}","targetLang":"${targetLang}","selectedText":"${text}","rawTranslation":"brief translation","entries":[{"word":"...","phonetic":"...","partOfSpeech":"...","definitions":[{"meaning":"...","synonyms":[],"antonyms":[]}],"examples":[{"source":"...","translation":"..."}],"frequency":"common"}]}`;
+}
+
+const STRICT_SYSTEM_PROMPT = `You are a JSON-only translation API. You must respond with valid JSON and nothing else. No markdown, no explanations, no code blocks — only the JSON object starting with { and ending with }.`;
+
+/**
  * Call the DeepSeek API to get dictionary-style translation results.
- * DeepSeek's chat API is fully OpenAI-compatible.
- *
- * Requests go through the Vite dev server proxy (/api/deepseek/*)
- * to avoid CORS restrictions — the browser talks to the same origin.
- *
- * @param apiKey - Your DeepSeek API key
- * @param text - The selected/highlighted text
- * @param sourceLang - Source language code (or 'auto')
- * @param targetLang - Target language code
- * @returns Structured translation result
+ * Requests go through the Vite dev server proxy (/api/deepseek/*).
+ * If JSON parsing fails, retries once with a stricter prompt.
  */
 export async function fetchTranslation(
   apiKey: string,
@@ -89,14 +142,41 @@ export async function fetchTranslation(
   signal?: AbortSignal
 ): Promise<TranslationResult> {
   if (!text.trim()) {
-    return {
-      sourceLang,
-      targetLang,
-      selectedText: text,
-      entries: [],
-    };
+    return { sourceLang, targetLang, selectedText: text, entries: [] };
   }
 
+  let content = await callApi(
+    apiKey, SYSTEM_PROMPT,
+    buildUserPrompt(text, sourceLang, targetLang),
+    signal
+  );
+
+  let result = parseTranslationJson(content);
+
+  if (!result) {
+    content = await callApi(
+      apiKey, STRICT_SYSTEM_PROMPT,
+      buildRetryPrompt(text, sourceLang, targetLang),
+      signal
+    );
+    result = parseTranslationJson(content);
+  }
+
+  if (!result) {
+    throw new Error(
+      'Translation service returned an invalid response. Try again or select different text.'
+    );
+  }
+
+  return result;
+}
+
+async function callApi(
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  signal?: AbortSignal
+): Promise<string> {
   const response = await fetch('/api/deepseek/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -106,8 +186,8 @@ export async function fetchTranslation(
     body: JSON.stringify({
       model: 'deepseek-v4-flash',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(text, sourceLang, targetLang) },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
       ],
       temperature: 0.3,
       max_tokens: 1000,
@@ -127,11 +207,7 @@ export async function fetchTranslation(
     throw new Error('Empty response from translation API');
   }
 
-  // Parse the JSON response — handle possible markdown code block wrapping
-  const jsonStr = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  const result: TranslationResult = JSON.parse(jsonStr);
-
-  return result;
+  return content;
 }
 
 /**

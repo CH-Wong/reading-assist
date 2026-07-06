@@ -1,0 +1,18 @@
+{
+  "name": "@reading-assist/shared",
+  "version": "1.0.0",
+  "description": "Shared types, language definitions, translation API client, and OCR service for the Reading Assist monorepo",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./languages": "./src/languages.ts",
+    "./translation": "./src/translation.ts",
+    "./ocr": "./src/ocr.ts"
+  },
+  "dependencies": {
+    "tesseract.js": "^5.1.1"
+  }
+}

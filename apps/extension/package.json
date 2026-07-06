@@ -1,0 +1,26 @@
+{
+  "name": "reading-assist-extension",
+  "version": "1.0.0",
+  "description": "Browser extension for reading foreign texts — dictionary translations & phonetic guides",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && vite build --config vite.config.content.ts --watch",
+    "build": "tsc && vite build && vite build --config vite.config.content.ts",
+    "build:firefox": "tsc && vite build --outDir dist-firefox && vite build --config vite.config.content.ts --outDir dist-firefox"
+  },
+  "dependencies": {
+    "@reading-assist/shared": "*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@types/webextension-polyfill": "^0.12.5",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3"
+  }
+}

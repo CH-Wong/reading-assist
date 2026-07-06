@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { Language, TranslationResult } from './types';
+import type { Language, TranslationResult } from '@reading-assist/shared';
 import LanguageSelector from './components/LanguageSelector';
 import TextEditor from './components/TextEditor';
 import TranslationPanel from './components/TranslationPanel';
@@ -43,16 +43,17 @@ export default function App() {
   const handleSelectionChange = useCallback(
     (text: string, selection: { start: number; end: number; fullText: string } | null) => {
       setSelectedText(text);
+      // Immediately clear old result so user sees loading, not stale data
+      setTranslationResult(null);
+      setTranslationError(null);
 
       // Cancel any in-flight translation request
       abortRef.current?.abort();
 
-      // Debounce: wait 400ms after selection stabilizes
+      // Debounce: wait 200ms after selection stabilizes
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       if (!text.trim() || !apiKeyRef.current) {
-        setTranslationResult(null);
-        setTranslationError(null);
         return;
       }
 
@@ -64,9 +65,10 @@ export default function App() {
         setTranslationError(null);
 
         try {
-          const { fetchTranslation } = await import('./services/translation');
+          const { fetchTranslation } = await import('@reading-assist/shared');
 
           const translation = await fetchTranslation(
+            '/api/deepseek',
             apiKeyRef.current,
             text,
             sourceLang,

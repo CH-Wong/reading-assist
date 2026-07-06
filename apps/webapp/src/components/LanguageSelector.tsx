@@ -1,5 +1,5 @@
-import { LANGUAGE_OPTIONS } from '../utils/languages';
-import type { Language, LanguageOption } from '../types';
+import { LANGUAGE_OPTIONS } from '@reading-assist/shared';
+import type { Language, LanguageOption } from '@reading-assist/shared';
 
 interface LanguageSelectorProps {
   label: string;
