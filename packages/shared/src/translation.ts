@@ -198,7 +198,7 @@ async function callApi(
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 500,  // Enough for dictionary entries; reduces latency ~30%
+        max_tokens: 2000,  // Reasoning models need headroom for chain-of-thought + response
       }),
       signal,
     });
@@ -230,7 +230,17 @@ async function callApi(
     throw new TranslationError('INVALID_JSON', 'Translation API returned non-JSON response');
   }
 
-  const content = data.choices?.[0]?.message?.content;
+  let content = data.choices?.[0]?.message?.content;
+  // Reasoning models (deepseek-reasoner, v4-flash) may put the answer in
+  // reasoning_content and leave content empty when max_tokens is too low.
+  const reasoning = data.choices?.[0]?.message?.reasoning_content;
+
+  if (!content && reasoning) {
+    console.debug('[ReadingAssist] content empty, falling back to reasoning_content (first 300 chars):',
+      reasoning.slice(0, 300));
+    // Try to extract JSON from the reasoning — the model may have embedded it
+    content = reasoning;
+  }
 
   if (!content) {
     console.debug('[ReadingAssist] API returned no content. Full response:', JSON.stringify(data).slice(0, 500));

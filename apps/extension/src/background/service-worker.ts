@@ -7,8 +7,8 @@
  */
 
 const ENABLED_KEY = 'reading-assist-enabled';
-const COLOR_ICON = { 16: 'icons/icon.svg', 48: 'icons/icon.svg', 128: 'icons/icon.svg' };
-const GRAY_ICON = { 16: 'icons/icon-off.svg', 48: 'icons/icon-off.svg', 128: 'icons/icon-off.svg' };
+const COLOR_ICON = { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' };
+const GRAY_ICON = { 16: 'icons/icon-off16.png', 48: 'icons/icon-off48.png', 128: 'icons/icon-off128.png' };
 
 /** Set the toolbar icon based on current enabled state */
 async function updateIcon(): Promise<void> {
