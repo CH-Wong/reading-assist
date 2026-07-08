@@ -190,7 +190,8 @@ async function callApi(
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 1000,
+      max_tokens: 1500,
+      thinking: { type: 'disabled' },
     }),
     signal,
   });
@@ -240,6 +241,7 @@ export async function fetchSimpleTranslation(
       ],
       temperature: 0.3,
       max_tokens: 200,
+      thinking: { type: 'disabled' },
     }),
   });
 

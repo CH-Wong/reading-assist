@@ -44,6 +44,12 @@
   border-bottom: 1px solid #f0f2f5;
   background: #fafbfc;
   border-radius: 12px 12px 0 0;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ra-panel-header:active {
+  cursor: grabbing;
 }
 
 .ra-selected-text {
@@ -61,6 +67,8 @@
   padding: 2px 6px;
   border-radius: 4px;
   line-height: 1;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 .ra-close-btn:hover {
   background: #f0f2f5;

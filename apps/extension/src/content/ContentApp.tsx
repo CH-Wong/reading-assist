@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { TranslationResult, Language } from '@reading-assist/shared';
 import { fetchTranslation, TranslationError } from '@reading-assist/shared';
 import { getApiKey, getSettings, onSettingsChanged, getEnabled, onEnabledChanged } from '../services/storage';
 import type { ExtensionSettings } from '../services/storage';
 
-/** Position the floating panel near the user's text selection */
+/** Position the floating panel near the user's text selection (viewport-relative) */
 function getSelectionRect(): DOMRect | null {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -28,6 +28,77 @@ export default function ContentApp() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const abortRef = useRef<AbortController>();
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Cache the last meaningful selected text so the header still shows it
+  // during drag (when the browser clears the real selection on mousedown).
+  const displayTextRef = useRef('');
+
+  // Drag state — persists across selections within the same page session, resets on page refresh
+  const dragState = useRef<{
+    isDragging: boolean;
+    startMouseX: number;
+    startMouseY: number;
+    startPanelLeft: number;
+    startPanelTop: number;
+    userSetPos: { top: number; left: number } | null;
+  }>({
+    isDragging: false,
+    startMouseX: 0,
+    startMouseY: 0,
+    startPanelLeft: 0,
+    startPanelTop: 0,
+    userSetPos: null,
+  });
+
+  // Start dragging the panel
+  const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
+    // Don't initiate drag on the close button
+    if ((e.target as HTMLElement).closest('.ra-close-btn')) return;
+
+    // Prevent the browser from starting a text-selection drag inside the panel
+    e.preventDefault();
+
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const rect = panel.getBoundingClientRect();
+    dragState.current.isDragging = true;
+    dragState.current.startMouseX = e.clientX;
+    dragState.current.startMouseY = e.clientY;
+    dragState.current.startPanelLeft = rect.left;
+    dragState.current.startPanelTop = rect.top;
+  }, []);
+
+  // Handle mouse move and mouse up for dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragState.current.isDragging) return;
+
+      const dx = e.clientX - dragState.current.startMouseX;
+      const dy = e.clientY - dragState.current.startMouseY;
+      const newLeft = dragState.current.startPanelLeft + dx;
+      const newTop = dragState.current.startPanelTop + dy;
+
+      // Clamp to viewport so the panel can't go completely off-screen
+      const clampedLeft = Math.max(-200, Math.min(newLeft, window.innerWidth - 40));
+      const clampedTop = Math.max(0, Math.min(newTop, window.innerHeight - 40));
+
+      const newPos = { top: clampedTop, left: clampedLeft };
+      dragState.current.userSetPos = newPos;
+      setPanelPos(newPos);
+    };
+
+    const handleMouseUp = () => {
+      dragState.current.isDragging = false;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Load settings and API key on mount
   useEffect(() => {
@@ -57,24 +128,32 @@ export default function ContentApp() {
       console.debug('[ReadingAssist] selected text:', JSON.stringify(text?.slice(0, 50)));
 
       if (!text || text.length > 200) {
-        // Too long — likely not a word lookup
+        // Text cleared or too long. Don't hide the panel — the browser
+        // clears the selection on any mousedown (e.g. when the user clicks
+        // the panel header to drag it). Hiding is handled by outside-click
+        // and the close button instead.
         setSelectedText('');
-        setIsVisible(false);
         return;
       }
 
+      // Fresh selection — update text, clear old result
       setSelectedText(text);
-      // Immediately clear old result so user sees loading, not stale data
+      displayTextRef.current = text;
       setTranslation(null);
       setError(null);
 
-      // Get position
-      const rect = getSelectionRect();
-      console.debug('[ReadingAssist] selection rect:', rect);
-      if (rect) {
-        const top = rect.bottom + window.scrollY + 8;
-        const left = Math.max(8, rect.left + window.scrollX + rect.width / 2 - 160);
-        setPanelPos({ top, left });
+      // Get position — use user-dragged position if set, otherwise compute from selection
+      if (dragState.current.userSetPos) {
+        setPanelPos(dragState.current.userSetPos);
+      } else {
+        const rect = getSelectionRect();
+        console.debug('[ReadingAssist] selection rect:', rect);
+        if (rect) {
+          // Viewport-relative (fixed positioning) — no scroll offsets
+          const top = rect.bottom + 8;
+          const left = Math.max(8, rect.left + rect.width / 2 - 160);
+          setPanelPos({ top, left });
+        }
       }
 
       console.debug('[ReadingAssist] setting isVisible=true');
@@ -129,7 +208,10 @@ export default function ContentApp() {
   // Hide panel when clicking elsewhere
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      // Use composedPath() because clicks inside Shadow DOM are retargeted
+      // to the host element; composedPath() reveals the real target path.
+      const path = e.composedPath();
+      if (panelRef.current && !path.includes(panelRef.current)) {
         setIsVisible(false);
       }
     };
@@ -137,21 +219,28 @@ export default function ContentApp() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  if (!isVisible || !selectedText) return null;
+  // Use cached text for display when the browser has cleared the real selection
+  // (e.g. during a drag of the panel header).
+  const displayText = selectedText || displayTextRef.current;
+
+  if (!isVisible) return null;
 
   return (
     <div
       ref={panelRef}
       className="ra-panel"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: panelPos?.top ?? 0,
         left: panelPos?.left ?? 0,
       }}
     >
-      {/* Header */}
-      <div className="ra-panel-header">
-        <span className="ra-selected-text">{selectedText}</span>
+      {/* Header — draggable */}
+      <div
+        className="ra-panel-header"
+        onMouseDown={onHeaderMouseDown}
+      >
+        <span className="ra-selected-text">{displayText}</span>
         <button className="ra-close-btn" onClick={() => setIsVisible(false)}>×</button>
       </div>
 
