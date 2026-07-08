@@ -104,12 +104,40 @@
   font-size: 0.8rem;
 }
 
+.ra-offline {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
+.ra-retry-btn {
+  margin-left: 10px;
+  padding: 2px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ra-retry-btn:hover {
+  background: #fef2f2;
+}
+
 /* ===== Raw Translation ===== */
 .ra-raw-translation {
   padding: 8px 14px;
   font-size: 1rem;
   font-weight: 600;
   color: #4a6cf7;
+}
+
+.ra-no-entries {
+  padding: 8px 14px;
+  color: #6c7086;
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 /* ===== Dictionary Entries ===== */

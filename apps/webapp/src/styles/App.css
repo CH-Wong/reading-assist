@@ -333,6 +333,26 @@ body {
   margin-bottom: 8px;
 }
 
+.offline-state {
+  color: var(--warning, #b45309);
+}
+
+.retry-btn {
+  margin-top: 12px;
+  padding: 6px 16px;
+  border: 1px solid var(--accent-light);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.retry-btn:hover {
+  background: var(--accent-light);
+}
+
 /* Translation Header */
 .translation-header {
   margin-bottom: 16px;

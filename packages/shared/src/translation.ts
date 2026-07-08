@@ -8,8 +8,58 @@ import { LANGUAGE_NAMES } from './languages';
  * browser extension (calls api.deepseek.com directly).
  *
  * Includes a 3-strategy JSON parser with automatic retry when the LLM
- * returns malformed responses.
+ * returns malformed responses, plus error classification so the UI can
+ * distinguish network/offline errors from API/content errors.
  */
+
+// ── Error classification ──
+
+/** Discriminated error types so the UI can show appropriate messages. */
+export type TranslationErrorCode =
+  | 'NETWORK'       // fetch itself failed (offline, DNS, cert, CORS)
+  | 'API_ERROR'     // API returned a non-OK status (4xx, 5xx)
+  | 'EMPTY_RESPONSE'// API returned 200 but no content
+  | 'INVALID_JSON'  // All parse strategies failed
+  | 'CANCELLED';    // Aborted by AbortController
+
+export class TranslationError extends Error {
+  public readonly code: TranslationErrorCode;
+  public readonly status?: number;
+
+  constructor(code: TranslationErrorCode, message: string, status?: number) {
+    super(message);
+    this.name = 'TranslationError';
+    this.code = code;
+    this.status = status;
+  }
+
+  /** Human-friendly summary for the UI. */
+  get userMessage(): string {
+    switch (this.code) {
+      case 'NETWORK':
+        return 'Unable to reach the translation service. Check your internet connection.';
+      case 'API_ERROR':
+        if (this.status === 401 || this.status === 403) {
+          return 'Invalid or expired API key. Please update your API key in settings.';
+        }
+        if (this.status === 429) {
+          return 'Too many requests. Please wait a moment and try again.';
+        }
+        return `Translation service error${this.status ? ` (${this.status})` : ''}. Please try again.`;
+      case 'EMPTY_RESPONSE':
+        return 'The translation service returned an empty response. Try different text.';
+      case 'INVALID_JSON':
+        return 'Received an unparseable response. Try again or select different text.';
+      case 'CANCELLED':
+        return 'Request cancelled.';
+    }
+  }
+
+  /** Whether this error is likely transient (worth retrying automatically). */
+  get isTransient(): boolean {
+    return this.code === 'NETWORK' || this.code === 'API_ERROR';
+  }
+}
 
 const SYSTEM_PROMPT = `You are a professional dictionary and translation assistant specializing in East Asian and European languages.
 
@@ -133,36 +183,61 @@ async function callApi(
   userPrompt: string,
   signal?: AbortSignal
 ): Promise<string> {
-  const response = await fetch(`${apiBaseUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-v4-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.3,
-      max_tokens: 500,  // Enough for dictionary entries; reduces latency ~30%
-    }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Translation API error (${response.status}): ${errorBody}`);
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-v4-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,  // Enough for dictionary entries; reduces latency ~30%
+      }),
+      signal,
+    });
+  } catch (err: any) {
+    // AbortError → re-throw so caller can ignore it
+    if (err?.name === 'AbortError') throw err;
+    // Network-level failure (offline, DNS, etc.)
+    throw new TranslationError('NETWORK', `Network error: ${err.message ?? 'Failed to reach translation service'}`);
   }
 
-  const data = await response.json();
+  if (!response.ok) {
+    let errorBody = '';
+    try {
+      errorBody = await response.text();
+    } catch {
+      errorBody = '(could not read error body)';
+    }
+    throw new TranslationError(
+      'API_ERROR',
+      `Translation API error (${response.status}): ${errorBody}`,
+      response.status
+    );
+  }
+
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    throw new TranslationError('INVALID_JSON', 'Translation API returned non-JSON response');
+  }
+
   const content = data.choices?.[0]?.message?.content;
 
   if (!content) {
-    throw new Error('Empty response from translation API');
+    console.debug('[ReadingAssist] API returned no content. Full response:', JSON.stringify(data).slice(0, 500));
+    throw new TranslationError('EMPTY_RESPONSE', 'Empty response from translation API');
   }
 
+  console.debug('[ReadingAssist] API raw content (first 300 chars):', content.slice(0, 300));
   return content;
 }
 
@@ -205,7 +280,8 @@ export async function fetchTranslation(
   }
 
   if (!result) {
-    throw new Error(
+    throw new TranslationError(
+      'INVALID_JSON',
       'Translation service returned an invalid response. Try again or select different text.'
     );
   }

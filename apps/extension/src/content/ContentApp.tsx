@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { TranslationResult, Language } from '@reading-assist/shared';
-import { fetchTranslation } from '@reading-assist/shared';
+import { fetchTranslation, TranslationError } from '@reading-assist/shared';
 import { getApiKey, getSettings, onSettingsChanged, getEnabled, onEnabledChanged } from '../services/storage';
 import type { ExtensionSettings } from '../services/storage';
 
@@ -47,10 +47,14 @@ export default function ContentApp() {
   // Listen for text selection on the page
   useEffect(() => {
     const handleSelection = () => {
+      console.debug('[ReadingAssist] selectionchange fired, enabled:', enabled);
+
       if (!enabled) return;
 
       const sel = window.getSelection();
       const text = sel?.toString().trim() ?? '';
+
+      console.debug('[ReadingAssist] selected text:', JSON.stringify(text?.slice(0, 50)));
 
       if (!text || text.length > 200) {
         // Too long — likely not a word lookup
@@ -66,12 +70,14 @@ export default function ContentApp() {
 
       // Get position
       const rect = getSelectionRect();
+      console.debug('[ReadingAssist] selection rect:', rect);
       if (rect) {
         const top = rect.bottom + window.scrollY + 8;
         const left = Math.max(8, rect.left + window.scrollX + rect.width / 2 - 160);
         setPanelPos({ top, left });
       }
 
+      console.debug('[ReadingAssist] setting isVisible=true');
       setIsVisible(true);
 
       // Debounced API call
@@ -98,14 +104,20 @@ export default function ContentApp() {
 
           if (!controller.signal.aborted) {
             setTranslation(result);
+            console.debug('[ReadingAssist] translation result:', result);
           }
         } catch (err: any) {
           if (err?.name === 'AbortError') return;
-          setError(err instanceof Error ? err.message : 'Translation failed');
+          // Duck-type check: bundled code can break instanceof on Error subclasses
+          const msg = typeof err?.userMessage === 'string' ? err.userMessage
+            : (typeof err?.code === 'string' ? `Translation error (${err.code})`
+            : (err instanceof Error ? err.message
+            : 'Translation failed'));
+          console.debug('[ReadingAssist] translation error:', msg, err);
+          setError(msg);
         } finally {
-          if (abortRef.current === controller) {
-            setIsLoading(false);
-          }
+          // Always clear loading — the abortRef check is too fragile
+          setIsLoading(false);
         }
       }, 200);  // Debounce: wait 200ms after selection stabilizes
     };
@@ -158,32 +170,37 @@ export default function ContentApp() {
         </div>
       )}
 
-      {/* Translation */}
-      {translation && !isLoading && (
+      {/* Translation + fallback when entries are empty */}
+      {translation && !isLoading && !error && (
         <div className="ra-translation">
           {translation.rawTranslation && (
             <p className="ra-raw-translation">{translation.rawTranslation}</p>
+          )}
+          {(!translation.entries || translation.entries.length === 0) && !translation.rawTranslation && (
+            <p className="ra-no-entries">No dictionary entries available for this selection.</p>
           )}
         </div>
       )}
 
       {/* Dictionary entries */}
-      {translation && translation.entries.length > 0 && (
+      {translation && translation.entries && translation.entries.length > 0 && (
         <div className="ra-entries">
           {translation.entries.slice(0, 3).map((entry, idx) => (
             <div key={idx} className="ra-entry">
               <div className="ra-entry-head">
-                <span className="ra-entry-word">{entry.word}</span>
-                <span className="ra-entry-phonetic">{entry.phonetic}</span>
+                {entry.word && <span className="ra-entry-word">{entry.word}</span>}
+                {entry.phonetic && <span className="ra-entry-phonetic">{entry.phonetic}</span>}
                 {entry.partOfSpeech && <span className="ra-entry-pos">{entry.partOfSpeech}</span>}
                 {entry.frequency && <span className={`ra-freq ra-freq-${entry.frequency}`}>{entry.frequency}</span>}
               </div>
-              <ol className="ra-definitions">
-                {entry.definitions.map((d, di) => (
-                  <li key={di}>{d.meaning}</li>
-                ))}
-              </ol>
-              {entry.examples.length > 0 && (
+              {entry.definitions && entry.definitions.length > 0 && (
+                <ol className="ra-definitions">
+                  {entry.definitions.map((d, di) => (
+                    <li key={di}>{d.meaning}</li>
+                  ))}
+                </ol>
+              )}
+              {entry.examples && entry.examples.length > 0 && (
                 <div className="ra-examples">
                   {entry.examples.slice(0, 2).map((ex, ei) => (
                     <div key={ei} className="ra-example">
@@ -200,3 +217,4 @@ export default function ContentApp() {
     </div>
   );
 }
+

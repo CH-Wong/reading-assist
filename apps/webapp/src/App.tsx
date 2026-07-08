@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Language, TranslationResult } from '@reading-assist/shared';
+import type { TranslationErrorCode } from '@reading-assist/shared';
 import LanguageSelector from './components/LanguageSelector';
 import TextEditor from './components/TextEditor';
 import TranslationPanel from './components/TranslationPanel';
@@ -34,26 +35,54 @@ export default function App() {
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+  const [translationErrorCode, setTranslationErrorCode] = useState<TranslationErrorCode | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>({ state: 'idle' });
 
   const apiKeyRef = useRef<string>(getApiKey());
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const abortRef = useRef<AbortController>();
 
+  // Refs to avoid dependency churn — the selection handler uses these instead of state
+  const sourceLangRef = useRef(sourceLang);
+  sourceLangRef.current = sourceLang;
+  const targetLangRef = useRef(targetLang);
+  targetLangRef.current = targetLang;
+  const isOfflineRef = useRef(isOffline);
+  isOfflineRef.current = isOffline;
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const handleSelectionChange = useCallback(
-    (text: string, selection: { start: number; end: number; fullText: string } | null) => {
+    (text: string, _selection: { start: number; end: number; fullText: string } | null) => {
+      const currentSourceLang = sourceLangRef.current;
+      const currentTargetLang = targetLangRef.current;
+
       setSelectedText(text);
-      // Immediately clear old result so user sees loading, not stale data
       setTranslationResult(null);
       setTranslationError(null);
+      setTranslationErrorCode(null);
 
-      // Cancel any in-flight translation request
       abortRef.current?.abort();
-
-      // Debounce: wait 200ms after selection stabilizes
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       if (!text.trim() || !apiKeyRef.current) {
+        return;
+      }
+
+      if (isOfflineRef.current) {
+        setTranslationError('You are offline. Please check your internet connection.');
+        setTranslationErrorCode('NETWORK');
         return;
       }
 
@@ -63,6 +92,7 @@ export default function App() {
 
         setIsTranslating(true);
         setTranslationError(null);
+        setTranslationErrorCode(null);
 
         try {
           const { fetchTranslation } = await import('@reading-assist/shared');
@@ -71,28 +101,35 @@ export default function App() {
             '/api/deepseek',
             apiKeyRef.current,
             text,
-            sourceLang,
-            targetLang,
+            currentSourceLang,
+            currentTargetLang,
             controller.signal
           );
 
           if (!controller.signal.aborted) {
             setTranslationResult(translation);
           }
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') {
+        } catch (err: any) {
+          if (err?.name === 'AbortError') {
             return;
           }
-          setTranslationError(err instanceof Error ? err.message : 'Translation failed');
+
+          // Duck-type: bundled code can break instanceof on Error subclasses
+          const msg = typeof err?.userMessage === 'string' ? err.userMessage
+            : (typeof err?.code === 'string' ? `Translation error (${err.code})`
+            : (err instanceof Error ? err.message
+            : 'Translation failed'));
+          console.debug('[ReadingAssist] translation error:', msg, err);
+          setTranslationError(msg);
+          setTranslationErrorCode(typeof err?.code === 'string' ? err.code : null);
           setTranslationResult(null);
         } finally {
-          if (abortRef.current === controller) {
-            setIsTranslating(false);
-          }
+          // Always clear loading
+          setIsTranslating(false);
         }
       }, 400);
     },
-    [sourceLang, targetLang]
+    [] // stable — reads latest lang values from refs
   );
 
   const handleOcrText = useCallback((text: string) => {
@@ -179,7 +216,36 @@ export default function App() {
             result={translationResult}
             isLoading={isTranslating}
             error={translationError}
+            errorCode={translationErrorCode}
             selectedText={selectedText}
+            isOffline={isOffline}
+            onRetry={async () => {
+              const controller = new AbortController();
+              abortRef.current = controller;
+              setIsTranslating(true);
+              setTranslationError(null);
+              setTranslationErrorCode(null);
+              try {
+                const { fetchTranslation } = await import('@reading-assist/shared');
+                const t = await fetchTranslation('/api/deepseek', apiKeyRef.current, selectedText, sourceLangRef.current, targetLangRef.current, controller.signal);
+                if (!controller.signal.aborted) {
+                  setTranslationResult(t);
+                  setIsTranslating(false);
+                }
+              } catch (retryErr: any) {
+                if (retryErr?.name === 'AbortError') return;
+                const msg = typeof retryErr?.userMessage === 'string' ? retryErr.userMessage
+                  : (typeof retryErr?.code === 'string' ? `Translation error (${retryErr.code})`
+                  : (retryErr instanceof Error ? retryErr.message
+                  : 'Translation failed'));
+                if (!controller.signal.aborted) {
+                  setTranslationError(msg);
+                  setTranslationErrorCode(typeof retryErr?.code === 'string' ? retryErr.code : null);
+                  setTranslationResult(null);
+                  setIsTranslating(false);
+                }
+              }
+            }}
           />
         </aside>
       </main>
