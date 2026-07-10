@@ -176,6 +176,16 @@ function isValidResult(obj: any): obj is TranslationResult {
 
 // ── API call ──
 
+/**
+ * Low-level DeepSeek API call using the OpenAI-compatible chat completions endpoint.
+ *
+ * Uses deepseek-v4-flash with thinking disabled — without this, the model may
+ * spend max_tokens on reasoning_content and return an empty content field.
+ *
+ * @param apiBaseUrl - Base URL for the API (e.g. 'https://api.deepseek.com' for
+ *   the extension, or '/api/deepseek' for the webapp which proxies via Vite/CloudFront)
+ * @throws {TranslationError} with codes NETWORK, API_ERROR, INVALID_JSON, or EMPTY_RESPONSE
+ */
 async function callApi(
   apiBaseUrl: string,
   apiKey: string,

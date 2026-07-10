@@ -1,16 +1,19 @@
-import type { Language, TranslationResult } from '../types';
-import { LANGUAGE_NAMES } from '../utils/languages';
-
 /**
- * Translation & dictionary service using DeepSeek.
+ * @deprecated This is a legacy standalone version (pre-monorepo).
+ * The canonical translation service lives at packages/shared/src/translation.ts.
+ * The webapp and extension both import from @reading-assist/shared instead.
+ * This file is kept for reference only — imports are broken.
+ *
+ * Translation & dictionary service using DeepSeek V4 Flash.
  *
  * DeepSeek's API is OpenAI-compatible — same request/response format.
- * Uses deepseek-chat model which excels at structured JSON output.
+ * Uses deepseek-v4-flash with thinking disabled to ensure structured JSON output.
  *
  * The LLM prompt is designed to return structured dictionary-style results
- * similar to Youdao or Pleco — with multiple definitions, pinyin/phonetic,
+ * similar to dedicated dictionary apps — with multiple definitions, pinyin/phonetic,
  * part of speech, and example sentences.
  */
+import type { Language, TranslationResult } from '../types';
 
 const SYSTEM_PROMPT = `You are a professional dictionary and translation assistant specializing in East Asian and European languages.
 

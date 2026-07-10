@@ -1,3 +1,8 @@
+/**
+ * @deprecated This is a legacy standalone version (pre-monorepo).
+ * The canonical TranslationPanel lives at apps/webapp/src/components/TranslationPanel.tsx.
+ * This file is kept for reference only — imports are broken.
+ */
 import type { TranslationResult } from '../types';
 
 interface TranslationPanelProps {

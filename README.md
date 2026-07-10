@@ -4,7 +4,7 @@
 
 > **Default source language:** Mandarin Chinese (Simplified)  
 > **Supported languages:** Mandarin Chinese, Cantonese, Dutch, German, English  
-> **Translation engine:** DeepSeek Chat (LLM-based via OpenAI-compatible API)
+> **Translation engine:** DeepSeek V4 Flash (LLM-based via OpenAI-compatible API)
 
 ---
 
@@ -83,7 +83,7 @@ When you select/highlight a word or phrase, a panel shows:
 |-------|-----------|-----------|
 | **Framework** | React 18 + TypeScript | Component-based UI, strong typing |
 | **Build Tool** | Vite 6 | Fast HMR, modern ESM-based bundling |
-| **Translation** | DeepSeek Chat API | LLM prompt delivers structured dictionary results |
+| **Translation** | DeepSeek V4 Flash API | LLM prompt delivers structured dictionary results |
 | **OCR** | Tesseract.js 5 | Fully client-side; supports 100+ languages |
 | **Styling** | Plain CSS | Zero dependencies; small bundles |
 | **Monorepo** | npm workspaces | Shared code in `packages/shared/`, apps in `apps/` |

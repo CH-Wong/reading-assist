@@ -1,7 +1,8 @@
 /**
- * Separate build for content script + background worker.
- * Outputs self-contained IIFE bundles — no import/export statements.
- * Content scripts in Chrome are classic scripts and cannot use ES modules.
+ * Separate build for the content script only.
+ * Outputs a self-contained IIFE bundle — no import/export statements.
+ * Chrome content scripts are classic scripts and cannot use ES modules.
+ * The popup and background worker are built by the main vite.config.ts.
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';

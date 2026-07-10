@@ -1,3 +1,8 @@
+/**
+ * @deprecated This is a legacy standalone version (pre-monorepo).
+ * The canonical webapp App lives at apps/webapp/src/App.tsx.
+ * This file is kept for reference only — imports are broken.
+ */
 import { useState, useCallback, useRef } from 'react';
 import type { Language, TranslationResult } from './types';
 import LanguageSelector from './components/LanguageSelector';
